@@ -5,8 +5,12 @@
  * - Structs e ponteiros em C
  * - Leitura e escrita de arquivos binários (fwrite/fread)
  * - Funções com ponteiros para arrays
- * - Busca linear e ordenação simples
+ * - Busca linear e ordenação com qsort
  * - Manipulação de strings com a biblioteca string.h
+ *
+ * As funções de "regra" (adicionar, buscar, emprestar...) não usam
+ * printf/scanf: elas só alteram os dados e devolvem um código.
+ * Isso permite testá-las automaticamente (veja tests/test_biblioteca.c).
  */
 
 #include "biblioteca.h"
@@ -23,22 +27,33 @@
 
 /**
  * Carrega os livros salvos no arquivo binário.
- * Retorna 1 em sucesso, 0 se o arquivo não existir (primeira execução).
+ * Retorna 1 em sucesso, 0 se o arquivo não existir (primeira execução)
+ * e -1 se o arquivo estiver corrompido.
  */
-int carregar_livros(Livro livros[], int *total) {
-    FILE *arquivo = fopen(ARQUIVO_DB, "rb");  /* "rb" = read binary */
+int carregar_livros(const char *caminho, Livro livros[], int *total) {
+    *total = 0;
+    FILE *arquivo = fopen(caminho, "rb");  /* "rb" = read binary */
     if (arquivo == NULL) {
-        *total = 0;
         return 0;  /* Arquivo não existe ainda — tudo bem */
     }
 
     /* Lê o total de livros (primeiro inteiro no arquivo) */
-    fread(total, sizeof(int), 1, arquivo);
+    int lido;
+    if (fread(&lido, sizeof(int), 1, arquivo) != 1 || lido < 0 || lido > MAX_LIVROS) {
+        /* Sem esta checagem, um arquivo corrompido com total = 50000
+         * faria o fread abaixo escrever além do fim do array */
+        fclose(arquivo);
+        return -1;
+    }
 
     /* Lê todos os livros de uma vez: fread(destino, tamanho_de_um, quantidade, arquivo) */
-    fread(livros, sizeof(Livro), *total, arquivo);
+    if (fread(livros, sizeof(Livro), (size_t)lido, arquivo) != (size_t)lido) {
+        fclose(arquivo);
+        return -1;
+    }
 
     fclose(arquivo);
+    *total = lido;
     return 1;
 }
 
@@ -46,88 +61,54 @@ int carregar_livros(Livro livros[], int *total) {
  * Salva os livros no arquivo binário.
  * Sobrescreve o arquivo inteiro a cada save.
  */
-int salvar_livros(Livro livros[], int total) {
-    FILE *arquivo = fopen(ARQUIVO_DB, "wb");  /* "wb" = write binary */
+int salvar_livros(const char *caminho, const Livro livros[], int total) {
+    FILE *arquivo = fopen(caminho, "wb");  /* "wb" = write binary */
     if (arquivo == NULL) {
         printf("Erro: não foi possível salvar os dados.\n");
         return 0;
     }
 
     /* Salva o total primeiro, depois os livros */
-    fwrite(&total, sizeof(int), 1, arquivo);
-    fwrite(livros, sizeof(Livro), total, arquivo);
+    int ok = fwrite(&total, sizeof(int), 1, arquivo) == 1
+          && fwrite(livros, sizeof(Livro), (size_t)total, arquivo) == (size_t)total;
 
-    fclose(arquivo);
-    return 1;
+    /* fclose também pode falhar (ex: disco cheio ao descarregar o buffer) */
+    if (fclose(arquivo) != 0) ok = 0;
+    if (!ok) printf("Erro: falha ao gravar %s.\n", caminho);
+    return ok;
 }
 
 /* ==========================================
- * CRUD — Create, Read, Update, Delete
+ * REGRAS — Create, Read, Update, Delete
  * ========================================== */
 
 /**
- * Cadastra um novo livro.
- * Retorna o ID do livro criado ou -1 em caso de erro.
+ * Adiciona uma cópia de *dados ao acervo, gerando um ID novo.
+ * Retorna o ID criado ou ERRO_CHEIO.
  *
  * Parâmetros com ponteiro (*total) permitem que a função
  * modifique a variável original do chamador.
  */
-int cadastrar_livro(Livro livros[], int *total) {
+int adicionar_livro(Livro livros[], int *total, const Livro *dados) {
     if (*total >= MAX_LIVROS) {
-        printf("Biblioteca cheia! Limite de %d livros atingido.\n", MAX_LIVROS);
-        return -1;
+        return ERRO_CHEIO;
     }
-
-    /* Trabalha diretamente na posição do array (sem copiar a struct) */
-    Livro *novo = &livros[*total];
 
     /* Gera ID automaticamente: maior ID existente + 1 */
     int maior_id = 0;
     for (int i = 0; i < *total; i++) {
         if (livros[i].id > maior_id) maior_id = livros[i].id;
     }
+
+    /* Copia a struct inteira de uma vez (atribuição de struct copia todos os campos) */
+    Livro *novo = &livros[*total];
+    *novo = *dados;
     novo->id = maior_id + 1;
-
-    printf("\n--- CADASTRAR LIVRO ---\n");
-    ler_string("Título", novo->titulo, MAX_TITULO);
-    ler_string("Autor", novo->autor, MAX_AUTOR);
-    ler_string("ISBN", novo->isbn, MAX_ISBN);
-    ler_string("Gênero", novo->genero, MAX_GENERO);
-    novo->ano_publicacao = ler_inteiro("Ano de publicação", 1000, 2100);
-
     novo->disponivel = 1;
     novo->qtd_emprestimos = 0;
 
     (*total)++;
-    salvar_livros(livros, *total);
-
-    printf("\nLivro cadastrado com sucesso! ID: %d\n", novo->id);
     return novo->id;
-}
-
-/** Lista todos os livros cadastrados */
-void listar_livros(Livro livros[], int total) {
-    if (total == 0) {
-        printf("\nNenhum livro cadastrado.\n");
-        return;
-    }
-
-    printf("\n%-4s  %-35s  %-20s  %-4s  %-12s  %s\n",
-           "ID", "Título", "Autor", "Ano", "Gênero", "Status");
-    printf("%s\n", "----------------------------------------------------------------------");
-
-    for (int i = 0; i < total; i++) {
-        Livro *l = &livros[i];
-        printf("%-4d  %-35.35s  %-20.20s  %-4d  %-12.12s  %s\n",
-               l->id,
-               l->titulo,
-               l->autor,
-               l->ano_publicacao,
-               l->genero,
-               l->disponivel ? "Disponível" : "Emprestado");
-    }
-
-    printf("\nTotal: %d livro(s)\n", total);
 }
 
 /** Busca um livro pelo ID. Retorna ponteiro para o livro ou NULL. */
@@ -141,57 +122,56 @@ Livro *buscar_por_id(Livro livros[], int total, int id) {
 }
 
 /**
- * Busca livros por título (busca parcial, case-insensitive).
- * Preenche o array resultados[] com os índices encontrados.
+ * Verifica se `termo` aparece em `texto`, sem diferenciar maiúsculas/minúsculas.
+ * Compara caractere a caractere, sem copiar as strings (nada de buffers fixos).
  */
-int buscar_por_titulo(Livro livros[], int total, const char *termo,
-                      int resultados[], int *qtd) {
-    *qtd = 0;
-    char termo_lower[MAX_TITULO];
-    char titulo_lower[MAX_TITULO];
+int contem_ignorando_caixa(const char *texto, const char *termo) {
+    if (*termo == '\0') return 1;  /* termo vazio está contido em qualquer texto */
 
-    /* Converte o termo para minúsculas para busca case-insensitive */
-    for (int i = 0; termo[i]; i++) {
-        termo_lower[i] = (char)tolower((unsigned char)termo[i]);
+    for (; *texto; texto++) {
+        const char *t = texto, *p = termo;
+        while (*t && *p && tolower((unsigned char)*t) == tolower((unsigned char)*p)) {
+            t++;
+            p++;
+        }
+        if (*p == '\0') return 1;
     }
-    termo_lower[strlen(termo)] = '\0';
+    return 0;
+}
 
+/**
+ * Busca livros por título ou autor (busca parcial, case-insensitive).
+ * Preenche resultados[] com os índices encontrados e retorna a quantidade.
+ */
+int buscar_livros(const Livro livros[], int total, CampoBusca campo,
+                  const char *termo, int resultados[]) {
+    int qtd = 0;
     for (int i = 0; i < total; i++) {
-        for (int j = 0; livros[i].titulo[j]; j++) {
-            titulo_lower[j] = (char)tolower((unsigned char)livros[i].titulo[j]);
-        }
-        titulo_lower[strlen(livros[i].titulo)] = '\0';
-
-        /* strstr verifica se termo_lower está contido em titulo_lower */
-        if (strstr(titulo_lower, termo_lower) != NULL) {
-            resultados[(*qtd)++] = i;
+        const char *texto = campo == CAMPO_AUTOR ? livros[i].autor : livros[i].titulo;
+        if (contem_ignorando_caixa(texto, termo)) {
+            resultados[qtd++] = i;
         }
     }
-
-    return *qtd;
+    return qtd;
 }
 
 /**
  * Remove um livro pelo ID.
- * Técnica: copia o último livro para o lugar do removido (O(1) em vez de O(n)).
+ * Desloca os livros seguintes uma posição para trás, mantendo a ordem de cadastro.
  */
 int remover_livro(Livro livros[], int *total, int id) {
     for (int i = 0; i < *total; i++) {
         if (livros[i].id == id) {
             if (!livros[i].disponivel) {
-                printf("Não é possível remover um livro emprestado.\n");
-                return 0;
+                return ERRO_EMPRESTADO;
             }
-            /* Substitui pelo último e decrementa o total */
-            livros[i] = livros[*total - 1];
+            /* memmove funciona mesmo com origem e destino sobrepostos */
+            memmove(&livros[i], &livros[i + 1], (size_t)(*total - i - 1) * sizeof(Livro));
             (*total)--;
-            salvar_livros(livros, *total);
-            printf("Livro removido com sucesso.\n");
-            return 1;
+            return OK;
         }
     }
-    printf("Livro com ID %d não encontrado.\n", id);
-    return 0;
+    return ERRO_NAO_ENCONTRADO;
 }
 
 /* ==========================================
@@ -200,42 +180,118 @@ int remover_livro(Livro livros[], int *total, int id) {
 
 int emprestar_livro(Livro livros[], int total, int id) {
     Livro *livro = buscar_por_id(livros, total, id);
-    if (livro == NULL) {
-        printf("Livro não encontrado.\n");
-        return 0;
-    }
-    if (!livro->disponivel) {
-        printf("Livro já está emprestado.\n");
-        return 0;
-    }
+    if (livro == NULL) return ERRO_NAO_ENCONTRADO;
+    if (!livro->disponivel) return ERRO_EMPRESTADO;
+
     livro->disponivel = 0;
     livro->qtd_emprestimos++;
-    salvar_livros(livros, total);
-    printf("Livro \"%s\" emprestado com sucesso!\n", livro->titulo);
-    return 1;
+    return OK;
 }
 
 int devolver_livro(Livro livros[], int total, int id) {
     Livro *livro = buscar_por_id(livros, total, id);
-    if (livro == NULL) {
-        printf("Livro não encontrado.\n");
-        return 0;
-    }
-    if (livro->disponivel) {
-        printf("Este livro não está emprestado.\n");
-        return 0;
-    }
+    if (livro == NULL) return ERRO_NAO_ENCONTRADO;
+    if (livro->disponivel) return ERRO_DISPONIVEL;
+
     livro->disponivel = 1;
-    salvar_livros(livros, total);
-    printf("Livro \"%s\" devolvido com sucesso!\n", livro->titulo);
-    return 1;
+    return OK;
+}
+
+/* ==========================================
+ * TELAS — interação com o usuário
+ * ========================================== */
+
+void tela_cadastrar(Livro livros[], int *total) {
+    if (*total >= MAX_LIVROS) {
+        printf("Biblioteca cheia! Limite de %d livros atingido.\n", MAX_LIVROS);
+        return;
+    }
+
+    Livro dados = {0};  /* {0} zera todos os campos da struct */
+    printf("\n--- CADASTRAR LIVRO ---\n");
+    do {
+        ler_string("Título", dados.titulo, MAX_TITULO);
+    } while (dados.titulo[0] == '\0');
+    ler_string("Autor", dados.autor, MAX_AUTOR);
+    ler_string("ISBN", dados.isbn, MAX_ISBN);
+    ler_string("Gênero", dados.genero, MAX_GENERO);
+    dados.ano_publicacao = ler_inteiro("Ano de publicação", 1000, 2100);
+
+    int id = adicionar_livro(livros, total, &dados);
+    salvar_livros(ARQUIVO_DB, livros, *total);
+    printf("\nLivro cadastrado com sucesso! ID: %d\n", id);
+}
+
+/** Edita os campos de um livro. Enter mantém o valor atual. */
+void tela_editar(Livro livros[], int total) {
+    int id = ler_inteiro("ID do livro para editar", 1, 99999);
+    Livro *livro = buscar_por_id(livros, total, id);
+    if (livro == NULL) {
+        printf("Livro com ID %d não encontrado.\n", id);
+        return;
+    }
+
+    char entrada[MAX_TITULO];
+    printf("\n--- EDITAR LIVRO %d --- (Enter mantém o valor atual)\n", id);
+
+    printf("Título atual: %s\n", livro->titulo);
+    ler_string("Novo título", entrada, MAX_TITULO);
+    if (entrada[0]) snprintf(livro->titulo, MAX_TITULO, "%s", entrada);
+
+    printf("Autor atual: %s\n", livro->autor);
+    ler_string("Novo autor", entrada, MAX_AUTOR);
+    if (entrada[0]) snprintf(livro->autor, MAX_AUTOR, "%s", entrada);
+
+    printf("ISBN atual: %s\n", livro->isbn);
+    ler_string("Novo ISBN", entrada, MAX_ISBN);
+    if (entrada[0]) snprintf(livro->isbn, MAX_ISBN, "%s", entrada);
+
+    printf("Gênero atual: %s\n", livro->genero);
+    ler_string("Novo gênero", entrada, MAX_GENERO);
+    if (entrada[0]) snprintf(livro->genero, MAX_GENERO, "%s", entrada);
+
+    printf("Ano atual: %d\n", livro->ano_publicacao);
+    ler_string("Novo ano", entrada, 8);
+    if (entrada[0]) {
+        int ano = atoi(entrada);
+        if (ano >= 1000 && ano <= 2100) livro->ano_publicacao = ano;
+        else printf("Ano inválido, mantido %d.\n", livro->ano_publicacao);
+    }
+
+    salvar_livros(ARQUIVO_DB, livros, total);
+    printf("Livro atualizado!\n");
+}
+
+/** Lista todos os livros cadastrados */
+void listar_livros(const Livro livros[], int total) {
+    if (total == 0) {
+        printf("\nNenhum livro cadastrado.\n");
+        return;
+    }
+
+    printf("\n%-4s  %-35s  %-20s  %-4s  %-12s  %s\n",
+           "ID", "Título", "Autor", "Ano", "Gênero", "Status");
+    printf("%s\n", "--------------------------------------------------------------------------------------");
+
+    for (int i = 0; i < total; i++) {
+        const Livro *l = &livros[i];
+        printf("%-4d  %-35.35s  %-20.20s  %-4d  %-12.12s  %s\n",
+               l->id,
+               l->titulo,
+               l->autor,
+               l->ano_publicacao,
+               l->genero,
+               l->disponivel ? "Disponível" : "Emprestado");
+    }
+
+    printf("\nTotal: %d livro(s)\n", total);
 }
 
 /* ==========================================
  * RELATÓRIOS
  * ========================================== */
 
-void relatorio_disponiveis(Livro livros[], int total) {
+void relatorio_disponiveis(const Livro livros[], int total) {
     int count = 0;
     printf("\n--- LIVROS DISPONÍVEIS ---\n");
     for (int i = 0; i < total; i++) {
@@ -249,37 +305,68 @@ void relatorio_disponiveis(Livro livros[], int total) {
     printf("\nTotal disponível: %d de %d\n", count, total);
 }
 
-/** Ordena por quantidade de empréstimos (bubble sort) e exibe top 5 */
-void relatorio_mais_emprestados(Livro livros[], int total) {
+/* Função de comparação para o qsort: mais empréstimos primeiro.
+ * Recebe ponteiros genéricos (const void *) para os elementos do array —
+ * aqui, cada elemento é um ponteiro para Livro. */
+static int comparar_emprestimos(const void *a, const void *b) {
+    const Livro *la = *(const Livro *const *)a;
+    const Livro *lb = *(const Livro *const *)b;
+    return lb->qtd_emprestimos - la->qtd_emprestimos;
+}
+
+/** Ordena por quantidade de empréstimos e exibe o top 5 */
+void relatorio_mais_emprestados(const Livro livros[], int total) {
     if (total == 0) { printf("Nenhum livro cadastrado.\n"); return; }
 
-    /* Cria array de ponteiros para ordenar sem mover as structs */
-    Livro *ordenados[MAX_LIVROS];
+    /* Array de ponteiros: ordena sem mover as structs (que são grandes) */
+    const Livro *ordenados[MAX_LIVROS];
     for (int i = 0; i < total; i++) ordenados[i] = &livros[i];
 
-    /* Bubble Sort — simples de entender, mas O(n²) */
-    for (int i = 0; i < total - 1; i++) {
-        for (int j = 0; j < total - i - 1; j++) {
-            if (ordenados[j]->qtd_emprestimos < ordenados[j+1]->qtd_emprestimos) {
-                Livro *temp = ordenados[j];
-                ordenados[j] = ordenados[j+1];
-                ordenados[j+1] = temp;
-            }
-        }
-    }
+    /* qsort: ordenação da biblioteca padrão, O(n log n) */
+    qsort(ordenados, (size_t)total, sizeof(ordenados[0]), comparar_emprestimos);
 
     int limite = total < 5 ? total : 5;
     printf("\n--- TOP %d MAIS EMPRESTADOS ---\n", limite);
     for (int i = 0; i < limite; i++) {
         printf("  %d. [%dx] %s — %s\n",
-               i+1, ordenados[i]->qtd_emprestimos,
+               i + 1, ordenados[i]->qtd_emprestimos,
                ordenados[i]->titulo, ordenados[i]->autor);
     }
 }
 
+/** Visão geral do acervo */
+void relatorio_resumo(const Livro livros[], int total) {
+    int emprestados = 0, total_emprestimos = 0;
+    int mais_antigo = -1;
+    for (int i = 0; i < total; i++) {
+        if (!livros[i].disponivel) emprestados++;
+        total_emprestimos += livros[i].qtd_emprestimos;
+        if (mais_antigo < 0 || livros[i].ano_publicacao < livros[mais_antigo].ano_publicacao) {
+            mais_antigo = i;
+        }
+    }
+
+    printf("\n--- RESUMO DO ACERVO ---\n");
+    printf("  Livros cadastrados:     %d\n", total);
+    printf("  Disponíveis:            %d\n", total - emprestados);
+    printf("  Emprestados agora:      %d\n", emprestados);
+    printf("  Empréstimos (histórico): %d\n", total_emprestimos);
+    if (mais_antigo >= 0) {
+        printf("  Mais antigo:            %s (%d)\n",
+               livros[mais_antigo].titulo, livros[mais_antigo].ano_publicacao);
+    }
+}
+
 /* ==========================================
- * UTILITÁRIOS
+ * UTILITÁRIOS DE ENTRADA
  * ========================================== */
+
+/* Chamado quando a entrada acaba (Ctrl+D / Ctrl+Z ou arquivo redirecionado).
+ * Sem isso, os loops de leitura ficariam repetindo para sempre. */
+static void fim_da_entrada(void) {
+    printf("\nEntrada encerrada. Os dados já estão salvos. Até logo!\n");
+    exit(0);
+}
 
 /** Limpa o buffer de entrada (resíduo do Enter após scanf) */
 void limpar_buffer(void) {
@@ -290,34 +377,35 @@ void limpar_buffer(void) {
 /** Lê um inteiro com validação de intervalo */
 int ler_inteiro(const char *prompt, int min, int max) {
     int valor;
-    do {
+    for (;;) {
         printf("%s (%d-%d): ", prompt, min, max);
-        while (scanf("%d", &valor) != 1) {
-            printf("Entrada inválida. Tente novamente: ");
-            limpar_buffer();
-        }
+        int lidos = scanf("%d", &valor);
+        if (lidos == EOF) fim_da_entrada();
         limpar_buffer();
-    } while (valor < min || valor > max);
-    return valor;
+        if (lidos == 1 && valor >= min && valor <= max) return valor;
+        printf("Entrada inválida. ");
+    }
 }
 
 /** Lê uma string com segurança (evita buffer overflow) */
 void ler_string(const char *prompt, char *destino, int tamanho) {
     printf("%s: ", prompt);
-    fgets(destino, tamanho, stdin);
-    /* Remove o '\n' que fgets inclui no final */
-    destino[strcspn(destino, "\n")] = '\0';
+    if (fgets(destino, tamanho, stdin) == NULL) fim_da_entrada();
+
+    size_t len = strcspn(destino, "\n");
+    if (destino[len] == '\n') {
+        destino[len] = '\0';  /* Remove o '\n' que fgets inclui no final */
+    } else {
+        /* O texto era maior que o buffer: descarta o resto da linha,
+         * senão ele seria lido como resposta da próxima pergunta */
+        limpar_buffer();
+    }
 }
 
 void pausar(void) {
     printf("\nPressione Enter para continuar...");
-    limpar_buffer();
-}
-
-void limpar_tela(void) {
-#ifdef _WIN32
-    system("cls");
-#else
-    system("clear");
-#endif
+    int c = getchar();
+    if (c == EOF) fim_da_entrada();
+    /* Se a pessoa digitou algo antes do Enter, descarta para não virar a próxima opção */
+    if (c != '\n') limpar_buffer();
 }

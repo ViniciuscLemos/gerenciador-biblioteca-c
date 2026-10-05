@@ -17,7 +17,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
+#include <ctype.h>   /* tolower() */
 
 /* ==========================================
  * Constantes — valores fixos com nome legível
@@ -46,6 +46,12 @@ typedef struct {
     int    qtd_emprestimos;
 } Livro;
 
+/* Em qual campo buscar (usado por buscar_livros) */
+typedef enum {
+    CAMPO_TITULO,
+    CAMPO_AUTOR
+} CampoBusca;
+
 /* ==========================================
  * Declarações de funções (protótipos)
  *
@@ -53,30 +59,39 @@ typedef struct {
  * antes de vê-la usada em outro arquivo.
  * ========================================== */
 
-/* Gerenciamento de dados */
-int   carregar_livros(Livro livros[], int *total);
-int   salvar_livros(Livro livros[], int total);
+/* Gerenciamento de dados — o caminho do arquivo é parâmetro para facilitar testes */
+int   carregar_livros(const char *caminho, Livro livros[], int *total);
+int   salvar_livros(const char *caminho, const Livro livros[], int total);
 
-/* CRUD */
-int   cadastrar_livro(Livro livros[], int *total);
-void  listar_livros(Livro livros[], int total);
+/* Regras (não leem do teclado — fáceis de testar) */
+int   adicionar_livro(Livro livros[], int *total, const Livro *dados);
 Livro *buscar_por_id(Livro livros[], int total, int id);
-int   buscar_por_titulo(Livro livros[], int total, const char *termo, int resultados[], int *qtd);
+int   buscar_livros(const Livro livros[], int total, CampoBusca campo,
+                    const char *termo, int resultados[]);
 int   remover_livro(Livro livros[], int *total, int id);
-
-/* Empréstimos */
 int   emprestar_livro(Livro livros[], int total, int id);
 int   devolver_livro(Livro livros[], int total, int id);
+int   contem_ignorando_caixa(const char *texto, const char *termo);
 
-/* Relatórios */
-void  relatorio_disponiveis(Livro livros[], int total);
-void  relatorio_mais_emprestados(Livro livros[], int total);
+/* Códigos de retorno das operações acima */
+#define OK                 1
+#define ERRO_NAO_ENCONTRADO 0
+#define ERRO_EMPRESTADO    -1
+#define ERRO_DISPONIVEL    -2
+#define ERRO_CHEIO         -3
 
-/* Utilitários */
+/* Telas (interagem com o usuário) */
+void  tela_cadastrar(Livro livros[], int *total);
+void  tela_editar(Livro livros[], int total);
+void  listar_livros(const Livro livros[], int total);
+void  relatorio_disponiveis(const Livro livros[], int total);
+void  relatorio_mais_emprestados(const Livro livros[], int total);
+void  relatorio_resumo(const Livro livros[], int total);
+
+/* Utilitários de entrada */
 void  limpar_buffer(void);
 int   ler_inteiro(const char *prompt, int min, int max);
 void  ler_string(const char *prompt, char *destino, int tamanho);
 void  pausar(void);
-void  limpar_tela(void);
 
 #endif /* BIBLIOTECA_H */

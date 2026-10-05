@@ -1,3 +1,6 @@
 biblioteca
+test_biblioteca
+*.exe
 *.o
 *.dat
+*.dat.bak

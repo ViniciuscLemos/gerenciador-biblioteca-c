@@ -1,0 +1,32 @@
+name: Testes
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        compilador: [gcc, clang]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compilar o programa (avisos viram erro)
+        run: make CC=${{ matrix.compilador }} CFLAGS="-Wall -Wextra -Wpedantic -std=c17 -g -Werror"
+
+      - name: Testes com AddressSanitizer e UBSan
+        # Os sanitizers detectam acesso fora de arrays, uso de memória liberada
+        # e comportamento indefinido durante a execução dos testes
+        run: make test CC=${{ matrix.compilador }} SANITIZE="-fsanitize=address,undefined -fno-omit-frame-pointer"
+
+      - name: Execução de ponta a ponta
+        run: |
+          printf '2\n\n4\nmachado\n\n6\n1\n\n11\n\n0\n' | ./biblioteca > saida.txt
+          cat saida.txt
+          grep -q "Dom Casmurro" saida.txt
+          grep -q "Livro emprestado com sucesso" saida.txt
+          grep -q "Emprestados agora:      2" saida.txt
+          # Fim da entrada não pode travar o programa
+          printf '2\n' | timeout 5 ./biblioteca > /dev/null
