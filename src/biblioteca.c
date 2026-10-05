@@ -222,6 +222,19 @@ void tela_cadastrar(Livro livros[], int *total) {
     printf("\nLivro cadastrado com sucesso! ID: %d\n", id);
 }
 
+/*
+ * Mostra o valor atual de um campo e lê o novo; Enter mantém o atual.
+ * A leitura já é limitada a `tamanho`, então o texto sempre cabe no destino
+ * (strlen(entrada) < tamanho) e pode ser copiado com memcpy.
+ */
+static void editar_campo(const char *rotulo_atual, const char *rotulo_novo,
+                         char *destino, int tamanho) {
+    char entrada[MAX_TITULO];  /* MAX_TITULO é o maior dos campos de texto */
+    printf("%s: %s\n", rotulo_atual, destino);
+    ler_string(rotulo_novo, entrada, tamanho);
+    if (entrada[0]) memcpy(destino, entrada, strlen(entrada) + 1);
+}
+
 /** Edita os campos de um livro. Enter mantém o valor atual. */
 void tela_editar(Livro livros[], int total) {
     int id = ler_inteiro("ID do livro para editar", 1, 99999);
@@ -231,27 +244,16 @@ void tela_editar(Livro livros[], int total) {
         return;
     }
 
-    char entrada[MAX_TITULO];
+    char entrada[8];
     printf("\n--- EDITAR LIVRO %d --- (Enter mantém o valor atual)\n", id);
 
-    printf("Título atual: %s\n", livro->titulo);
-    ler_string("Novo título", entrada, MAX_TITULO);
-    if (entrada[0]) snprintf(livro->titulo, MAX_TITULO, "%s", entrada);
-
-    printf("Autor atual: %s\n", livro->autor);
-    ler_string("Novo autor", entrada, MAX_AUTOR);
-    if (entrada[0]) snprintf(livro->autor, MAX_AUTOR, "%s", entrada);
-
-    printf("ISBN atual: %s\n", livro->isbn);
-    ler_string("Novo ISBN", entrada, MAX_ISBN);
-    if (entrada[0]) snprintf(livro->isbn, MAX_ISBN, "%s", entrada);
-
-    printf("Gênero atual: %s\n", livro->genero);
-    ler_string("Novo gênero", entrada, MAX_GENERO);
-    if (entrada[0]) snprintf(livro->genero, MAX_GENERO, "%s", entrada);
+    editar_campo("Título atual", "Novo título", livro->titulo, MAX_TITULO);
+    editar_campo("Autor atual", "Novo autor", livro->autor, MAX_AUTOR);
+    editar_campo("ISBN atual", "Novo ISBN", livro->isbn, MAX_ISBN);
+    editar_campo("Gênero atual", "Novo gênero", livro->genero, MAX_GENERO);
 
     printf("Ano atual: %d\n", livro->ano_publicacao);
-    ler_string("Novo ano", entrada, 8);
+    ler_string("Novo ano", entrada, (int)sizeof(entrada));
     if (entrada[0]) {
         int ano = atoi(entrada);
         if (ano >= 1000 && ano <= 2100) livro->ano_publicacao = ano;
