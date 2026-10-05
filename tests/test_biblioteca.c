@@ -1,11 +1,4 @@
-/*
- * test_biblioteca.c — Testes automatizados das regras da biblioteca
- *
- * C não tem framework de testes na biblioteca padrão, então usamos uma
- * macro simples: CHECK(condição) conta acertos e mostra o que falhou.
- *
- * Execute com: make test
- */
+/* make test. Sem framework: o CHECK conta o que passou e mostra o que falhou */
 
 #include "../src/biblioteca.h"
 
@@ -45,7 +38,7 @@ static void test_adicionar_gera_ids(void) {
     CHECK(acervo[1].disponivel == 1);
     CHECK(acervo[1].qtd_emprestimos == 0);
 
-    /* Depois de remover o último, o próximo ID continua sendo max+1 */
+    /* depois de remover o último, o id volta a ser max+1 */
     CHECK(remover_livro(acervo, &total, 3) == OK);
     Livro d = novo("Novo", "Autor", 2020);
     CHECK(adicionar_livro(acervo, &total, &d) == 3);
@@ -89,7 +82,6 @@ static void test_remover_mantem_ordem(void) {
     CHECK(devolver_livro(acervo, total, 2) == OK);
     CHECK(remover_livro(acervo, &total, 1) == OK);
     CHECK(total == 2);
-    /* A versão antiga trocava o removido pelo último e embaralhava a lista */
     CHECK(acervo[0].id == 2 && acervo[1].id == 3);
     CHECK(remover_livro(acervo, &total, 1) == ERRO_NAO_ENCONTRADO);
 }
@@ -123,7 +115,7 @@ static void test_arquivo_corrompido(void) {
     const char *arquivo = "test_corrompido.dat";
     int total_lido = -1;
 
-    /* Total impossível: antes isso faria o fread escrever fora do array */
+    /* total maior que o array */
     FILE *f = fopen(arquivo, "wb");
     int falso = MAX_LIVROS * 50;
     fwrite(&falso, sizeof(int), 1, f);
@@ -131,7 +123,7 @@ static void test_arquivo_corrompido(void) {
     CHECK(carregar_livros(arquivo, carregado, &total_lido) == -1);
     CHECK(total_lido == 0);
 
-    /* Diz que tem 2 livros, mas o arquivo termina antes */
+    /* diz que tem 2 livros mas o arquivo acaba antes */
     f = fopen(arquivo, "wb");
     int dois = 2;
     fwrite(&dois, sizeof(int), 1, f);

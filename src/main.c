@@ -1,17 +1,6 @@
-/*
- * main.c — Ponto de entrada do sistema de biblioteca
- *
- * A função main() é obrigatória em todo programa C.
- * Ela retorna um int: 0 significa sucesso, outro valor = erro.
- *
- * Aqui fica apenas o menu e o loop principal.
- * Toda a lógica está em biblioteca.c.
- */
-
 #include "biblioteca.h"
 
-/* Array de livros — static: fica fora da pilha (stack).
- * São ~300 KB; em algumas plataformas a pilha tem só 1 MB. */
+/* static pra não ir pra pilha (são uns 300 KB) */
 static Livro acervo[MAX_LIVROS];
 static int total_livros = 0;
 
@@ -33,7 +22,7 @@ static void popular_exemplos(int *total) {
     adicionar_exemplo(total, "Clean Code", "Robert C. Martin", "978-0132350884", "Tecnologia", 2008);
     adicionar_exemplo(total, "Dom Casmurro", "Machado de Assis", "978-8535917239", "Literatura", 1899);
 
-    /* Histórico de empréstimos fictício para o relatório ter o que mostrar */
+    /* uns empréstimos inventados pro relatório não ficar vazio */
     acervo[0].qtd_emprestimos = 5;
     acervo[1].qtd_emprestimos = 8;
     acervo[2].qtd_emprestimos = 12;
@@ -43,7 +32,6 @@ static void popular_exemplos(int *total) {
     printf("%d livros de exemplo adicionados!\n", *total);
 }
 
-/* Traduz o código de retorno das funções de regra em uma mensagem */
 static void mostrar_resultado(int codigo, const char *sucesso) {
     switch (codigo) {
         case OK:                  printf("%s\n", sucesso); break;
@@ -68,7 +56,7 @@ static void tela_buscar(CampoBusca campo) {
     printf("\n%d resultado(s):\n", qtd);
     for (int i = 0; i < qtd; i++) {
         const Livro *l = &acervo[resultados[i]];
-        printf("  [%d] %s — %s (%s)\n",
+        printf("  [%d] %s - %s (%s)\n",
                l->id, l->titulo, l->autor,
                l->disponivel ? "Disponível" : "Emprestado");
     }
@@ -83,7 +71,6 @@ int main(void) {
     printf("  DE BIBLIOTECA\n");
     printf("=================================\n");
 
-    /* Carrega dados do arquivo ao iniciar */
     int carregou = carregar_livros(ARQUIVO_DB, acervo, total);
     if (carregou == 1) {
         printf("Dados carregados: %d livro(s) no acervo.\n", *total);
@@ -98,7 +85,6 @@ int main(void) {
         popular_exemplos(total);
     }
 
-    /* Loop principal do menu */
     while (opcao != 0) {
         printf("\n=================================\n");
         printf("  MENU PRINCIPAL\n");
@@ -183,5 +169,5 @@ int main(void) {
         if (opcao != 0) pausar();
     }
 
-    return 0;  /* 0 = programa terminou com sucesso */
+    return 0;
 }
