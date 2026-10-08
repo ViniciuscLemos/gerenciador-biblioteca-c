@@ -37,6 +37,22 @@ make test
 
 Na primeira vez que roda, ele já cadastra 3 livros de exemplo.
 
+## Como fica
+
+A listagem do acervo:
+
+```
+ID    Título                               Autor                 Ano   Gênero        Status
+--------------------------------------------------------------------------------------
+1     O Programador Pragmático             David Thomas & Andre  2019  Tecnologia    Disponível
+2     Clean Code                           Robert C. Martin      2008  Tecnologia    Disponível
+3     Dom Casmurro                         Machado de Assis      1899  Literatura    Emprestado
+
+Total: 3 livro(s)
+```
+
+Essa tabela me deu trabalho. O `printf("%-35.35s")` alinha contando bytes, só que em UTF-8 letras como "á" e "ê" ocupam 2 bytes. Com isso, toda linha com acento ficava mais curta que as outras, e quando o título passava do limite ele podia ser cortado no meio de uma letra, aparecendo um caractere quebrado. Escrevi a `formatar_coluna`, que conta caracteres em vez de bytes (todo byte que não começa com `10` em binário inicia um caractere novo). Os testes cobrem até o caso de um texto que termina no meio de um caractere, e no CI eles rodam com o AddressSanitizer pra garantir que nada é lido fora da memória.
+
 ## Arquivos
 
 ```
