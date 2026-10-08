@@ -134,6 +134,25 @@ static void test_arquivo_corrompido(void) {
     remove(arquivo);
 }
 
+static void test_coluna_conta_caracteres_e_nao_bytes(void) {
+    char buf[TAM_COLUNA(10)];
+
+    /* "ç" e "ã" têm 2 bytes cada, mas contam como 1 caractere */
+    formatar_coluna(buf, "Ação", 6);
+    CHECK(strcmp(buf, "Ação  ") == 0);
+
+    /* corta em 8 caracteres, sem partir o "ó" no meio */
+    formatar_coluna(buf, "Memórias Póstumas", 8);
+    CHECK(strcmp(buf, "Memórias") == 0);
+
+    formatar_coluna(buf, "", 3);
+    CHECK(strcmp(buf, "   ") == 0);
+
+    /* texto que termina no meio de um caractere não pode ler além do fim */
+    formatar_coluna(buf, "a\xc3", 4);
+    CHECK(strcmp(buf, "a\xc3  ") == 0);
+}
+
 int main(void) {
     test_adicionar_gera_ids();
     test_busca_sem_diferenciar_caixa();
@@ -142,6 +161,7 @@ int main(void) {
     test_limite_do_acervo();
     test_salvar_e_carregar();
     test_arquivo_corrompido();
+    test_coluna_conta_caracteres_e_nao_bytes();
 
     printf("\nResultado: %d verificação(ões) passaram, %d falharam.\n", passou, falhou);
     return falhou == 0 ? 0 : 1;

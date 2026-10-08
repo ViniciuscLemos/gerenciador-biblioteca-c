@@ -50,6 +50,10 @@ int   emprestar_livro(Livro livros[], int total, int id);
 int   devolver_livro(Livro livros[], int total, int id);
 int   contem_ignorando_caixa(const char *texto, const char *termo);
 
+/* tamanho do buffer pro formatar_coluna (cada caractere UTF-8 tem até 4 bytes) */
+#define TAM_COLUNA(largura) ((largura) * 4 + 1)
+void  formatar_coluna(char *destino, const char *texto, int largura);
+
 /* telas */
 void  tela_cadastrar(Livro livros[], int *total);
 void  tela_editar(Livro livros[], int total);

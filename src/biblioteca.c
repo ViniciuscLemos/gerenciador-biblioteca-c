@@ -89,6 +89,25 @@ int contem_ignorando_caixa(const char *texto, const char *termo) {
     return 0;
 }
 
+/* Corta o texto em `largura` caracteres e completa com espaços.
+ * O printf("%-35.35s") conta bytes, e em UTF-8 o "ó" ocupa 2: a tabela ficava torta
+ * e um título comprido podia ser cortado no meio de uma letra acentuada. Aqui eu conto
+ * caracteres: todo byte que não é de continuação (10xxxxxx) começa um caractere novo.
+ * `destino` precisa ter TAM_COLUNA(largura) bytes. */
+void formatar_coluna(char *destino, const char *texto, int largura) {
+    const unsigned char *p = (const unsigned char *)texto;
+    int caracteres = 0;
+
+    while (*p && caracteres < largura) {
+        int bytes = *p >= 0xF0 ? 4 : *p >= 0xE0 ? 3 : *p >= 0xC0 ? 2 : 1;
+        /* o *p no for evita passar do fim se o texto terminar no meio de um caractere */
+        for (int i = 0; i < bytes && *p; i++) *destino++ = (char)*p++;
+        caracteres++;
+    }
+    while (caracteres++ < largura) *destino++ = ' ';
+    *destino = '\0';
+}
+
 /* preenche resultados[] com os índices encontrados e retorna quantos achou */
 int buscar_livros(const Livro livros[], int total, CampoBusca campo,
                   const char *termo, int resultados[]) {
@@ -203,14 +222,20 @@ void listar_livros(const Livro livros[], int total) {
         return;
     }
 
-    printf("\n%-4s  %-35s  %-20s  %-4s  %-12s  %s\n",
-           "ID", "Título", "Autor", "Ano", "Gênero", "Status");
+    char titulo[TAM_COLUNA(35)], autor[TAM_COLUNA(20)], genero[TAM_COLUNA(12)];
+
+    formatar_coluna(titulo, "Título", 35);
+    formatar_coluna(genero, "Gênero", 12);
+    printf("\n%-4s  %s  %-20s  %-4s  %s  %s\n", "ID", titulo, "Autor", "Ano", genero, "Status");
     printf("%s\n", "--------------------------------------------------------------------------------------");
 
     for (int i = 0; i < total; i++) {
         const Livro *l = &livros[i];
-        printf("%-4d  %-35.35s  %-20.20s  %-4d  %-12.12s  %s\n",
-               l->id, l->titulo, l->autor, l->ano_publicacao, l->genero,
+        formatar_coluna(titulo, l->titulo, 35);
+        formatar_coluna(autor, l->autor, 20);
+        formatar_coluna(genero, l->genero, 12);
+        printf("%-4d  %s  %s  %-4d  %s  %s\n",
+               l->id, titulo, autor, l->ano_publicacao, genero,
                l->disponivel ? "Disponível" : "Emprestado");
     }
 
