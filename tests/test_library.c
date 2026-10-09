@@ -141,8 +141,12 @@ static void test_column_counts_characters_not_bytes(void) {
     format_column(buf, "Ação", 6);
     CHECK(strcmp(buf, "Ação  ") == 0);
 
-    /* cuts at 8 characters, without splitting the "ó" in half */
+    /* cuts with "..." at the end, without splitting the "ó" in half */
     format_column(buf, "Memórias Póstumas", 8);
+    CHECK(strcmp(buf, "Memór...") == 0);
+
+    /* text with exactly the width isn't cut */
+    format_column(buf, "Memórias", 8);
     CHECK(strcmp(buf, "Memórias") == 0);
 
     format_column(buf, "", 3);

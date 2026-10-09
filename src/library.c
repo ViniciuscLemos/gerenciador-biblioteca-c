@@ -94,15 +94,32 @@ int contains_ignore_case(const char *text, const char *term) {
  * and a long title could get cut in the middle of an accented letter. Here I count
  * characters: every byte that isn't a continuation byte (10xxxxxx) starts a new character.
  * `dest` needs COLUMN_SIZE(width) bytes. */
+/* counts characters, not bytes (the bytes 10xxxxxx continue a character) */
+static int utf8_length(const char *text) {
+    int count = 0;
+    for (const unsigned char *p = (const unsigned char *)text; *p; p++) {
+        if ((*p & 0xC0) != 0x80) count++;
+    }
+    return count;
+}
+
 void format_column(char *dest, const char *text, int width) {
     const unsigned char *p = (const unsigned char *)text;
     int chars = 0;
+    /* when the text doesn't fit, it ends in "..." so it's clear it was cut */
+    int cut = width > 3 && utf8_length(text) > width;
+    int limit = cut ? width - 3 : width;
 
-    while (*p && chars < width) {
+    while (*p && chars < limit) {
         int bytes = *p >= 0xF0 ? 4 : *p >= 0xE0 ? 3 : *p >= 0xC0 ? 2 : 1;
         /* the *p in the loop avoids going past the end if the text ends in the middle of a character */
         for (int i = 0; i < bytes && *p; i++) *dest++ = (char)*p++;
         chars++;
+    }
+    if (cut) {
+        memcpy(dest, "...", 3);
+        dest += 3;
+        chars += 3;
     }
     while (chars++ < width) *dest++ = ' ';
     *dest = '\0';
