@@ -1,0 +1,32 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        compiler: [gcc, clang]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the program (warnings become errors)
+        run: make CC=${{ matrix.compiler }} CFLAGS="-Wall -Wextra -Wpedantic -std=c17 -g -Werror"
+
+      - name: Tests with AddressSanitizer and UBSan
+        # The sanitizers catch out of bounds access, use of freed memory
+        # and undefined behavior while the tests run
+        run: make test CC=${{ matrix.compiler }} SANITIZE="-fsanitize=address,undefined -fno-omit-frame-pointer"
+
+      - name: End to end run
+        run: |
+          printf '2\n\n4\nmachado\n\n6\n1\n\n11\n\n0\n' | ./library > output.txt
+          cat output.txt
+          grep -q "Dom Casmurro" output.txt
+          grep -q "Book borrowed!" output.txt
+          grep -q "Borrowed now:           2" output.txt
+          # End of input can't hang the program
+          printf '2\n' | timeout 5 ./library > /dev/null

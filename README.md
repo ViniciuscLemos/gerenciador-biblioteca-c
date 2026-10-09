@@ -1,64 +1,64 @@
-# Gerenciador de Biblioteca
+# Library Manager
 
-![Testes](https://github.com/ViniciuscLemos/gerenciador-biblioteca-c/actions/workflows/testes.yml/badge.svg)
+![Tests](https://github.com/ViniciuscLemos/library-manager-c/actions/workflows/tests.yml/badge.svg)
 
-Sistema de biblioteca no terminal, feito em C. Dá pra cadastrar, editar, buscar e remover livros, controlar os empréstimos e ver alguns relatórios.
+A library system for the terminal, written in C. You can add, edit, search and remove books, keep track of who borrowed what and see a few reports.
 
-Os dados ficam salvos num arquivo binário (`biblioteca.dat`) usando `fwrite`/`fread`.
+The data is saved to a binary file (`library.dat`) using `fwrite`/`fread`.
 
-## Compilando
+## Building
 
-Precisa do gcc (no Windows eu recomendo o MSYS2 ou o WSL).
+You need gcc (on Windows I recommend MSYS2 or WSL).
 
 ```bash
 make
-./biblioteca
+./library
 ```
 
-Ou sem o make:
+Or without make:
 
 ```bash
-gcc -Wall -Wextra -std=c17 -o biblioteca src/main.c src/biblioteca.c
+gcc -Wall -Wextra -std=c17 -o library src/main.c src/library.c
 ```
 
-Testes:
+Tests:
 
 ```bash
 make test
 ```
 
-## O que tem no menu
+## What's in the menu
 
-- cadastrar, editar e remover livros
-- listar todos os livros
-- buscar por título ou autor (não diferencia maiúsculas de minúsculas)
-- emprestar e devolver
-- relatórios: livros disponíveis, os 5 mais emprestados e um resumo do acervo
+- add, edit and remove books
+- list all books
+- search by title or author (case insensitive)
+- borrow and return
+- reports: available books, the 5 most borrowed and a summary of the collection
 
-Na primeira vez que roda, ele já cadastra 3 livros de exemplo.
+The first time it runs, it already adds 3 sample books.
 
-## Como fica
+## What it looks like
 
-A listagem do acervo:
+The book list:
 
 ```
-ID    Título                               Autor                 Ano   Gênero        Status
+ID    Title                                Author                Year  Genre         Status
 --------------------------------------------------------------------------------------
-1     O Programador Pragmático             David Thomas & Andre  2019  Tecnologia    Disponível
-2     Clean Code                           Robert C. Martin      2008  Tecnologia    Disponível
-3     Dom Casmurro                         Machado de Assis      1899  Literatura    Emprestado
+1     The Pragmatic Programmer             David Thomas & Andre  2019  Technology    Available
+2     Clean Code                           Robert C. Martin      2008  Technology    Available
+3     Dom Casmurro                         Machado de Assis      1899  Literature    Borrowed
 
-Total: 3 livro(s)
+Total: 3 book(s)
 ```
 
-Essa tabela me deu trabalho. O `printf("%-35.35s")` alinha contando bytes, só que em UTF-8 letras como "á" e "ê" ocupam 2 bytes. Com isso, toda linha com acento ficava mais curta que as outras, e quando o título passava do limite ele podia ser cortado no meio de uma letra, aparecendo um caractere quebrado. Escrevi a `formatar_coluna`, que conta caracteres em vez de bytes (todo byte que não começa com `10` em binário inicia um caractere novo). Os testes cobrem até o caso de um texto que termina no meio de um caractere, e no CI eles rodam com o AddressSanitizer pra garantir que nada é lido fora da memória.
+This table gave me some work. `printf("%-35.35s")` aligns by counting bytes, but in UTF-8 letters like "á" and "ê" take 2 bytes. Because of that, every row with an accented title (like "Memórias Póstumas de Brás Cubas") came out shorter than the others, and when the title went over the limit it could get cut in the middle of a letter, showing a broken character. I wrote `format_column`, which counts characters instead of bytes (every byte that doesn't start with `10` in binary starts a new character). The tests even cover a text that ends in the middle of a character, and in CI they run with AddressSanitizer to make sure nothing is read outside the memory.
 
-## Arquivos
+## Files
 
 ```
 src/main.c          menu
-src/biblioteca.c    funções do sistema
-src/biblioteca.h    struct Livro e declarações
-tests/              testes
+src/library.c       the system's functions
+src/library.h       Book struct and declarations
+tests/              tests
 Makefile
 ```

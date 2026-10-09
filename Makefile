@@ -2,24 +2,24 @@
 
 CC      = gcc
 CFLAGS  = -Wall -Wextra -std=c17 -g
-SRC     = src/main.c src/biblioteca.c
-HEADERS = src/biblioteca.h
-TARGET  = biblioteca
-TESTE   = test_biblioteca
+SRC     = src/main.c src/library.c
+HEADERS = src/library.h
+TARGET  = library
+TEST    = test_library
 
 all: $(TARGET)
 
 $(TARGET): $(SRC) $(HEADERS)
 	$(CC) $(CFLAGS) -o $(TARGET) $(SRC)
-	@echo "Compilado com sucesso! Execute com: ./$(TARGET)"
+	@echo "Build done! Run it with: ./$(TARGET)"
 
-# no CI passo SANITIZE="-fsanitize=address,undefined" pra pegar erro de memória
-test: tests/test_biblioteca.c src/biblioteca.c $(HEADERS)
-	$(CC) $(CFLAGS) $(SANITIZE) -o $(TESTE) tests/test_biblioteca.c src/biblioteca.c
-	./$(TESTE)
+# in CI I pass SANITIZE="-fsanitize=address,undefined" to catch memory errors
+test: tests/test_library.c src/library.c $(HEADERS)
+	$(CC) $(CFLAGS) $(SANITIZE) -o $(TEST) tests/test_library.c src/library.c
+	./$(TEST)
 
 clean:
-	rm -f $(TARGET) $(TARGET).exe $(TESTE) $(TESTE).exe biblioteca.dat biblioteca.dat.bak
+	rm -f $(TARGET) $(TARGET).exe $(TEST) $(TEST).exe library.dat library.dat.bak
 
 run: $(TARGET)
 	./$(TARGET)
