@@ -242,7 +242,7 @@ void list_books(const Book books[], int total) {
     char title[COLUMN_SIZE(35)], author[COLUMN_SIZE(20)], genre[COLUMN_SIZE(12)];
 
     printf("\n%-4s  %-35s  %-20s  %-4s  %-12s  %s\n", "ID", "Title", "Author", "Year", "Genre", "Status");
-    printf("%s\n", "--------------------------------------------------------------------------------------");
+    printf("%s\n", "----------------------------------------------------------------------------------------------");
 
     for (int i = 0; i < total; i++) {
         const Book *b = &books[i];

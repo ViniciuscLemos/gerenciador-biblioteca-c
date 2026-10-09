@@ -39,19 +39,11 @@ The first time it runs, it already adds 3 sample books.
 
 ## What it looks like
 
-The book list:
+Listing the books and the collection summary:
 
-```
-ID    Title                                Author                Year  Genre         Status
---------------------------------------------------------------------------------------
-1     The Pragmatic Programmer             David Thomas & Andre  2019  Technology    Available
-2     Clean Code                           Robert C. Martin      2008  Technology    Available
-3     Dom Casmurro                         Machado de Assis      1899  Literature    Borrowed
+![The menu, the book list and the summary in the terminal](docs/screenshot.png)
 
-Total: 3 book(s)
-```
-
-This table gave me some work. `printf("%-35.35s")` aligns by counting bytes, but in UTF-8 letters like "á" and "ê" take 2 bytes. Because of that, every row with an accented title (like "Memórias Póstumas de Brás Cubas") came out shorter than the others, and when the title went over the limit it could get cut in the middle of a letter, showing a broken character. I wrote `format_column`, which counts characters instead of bytes (every byte that doesn't start with `10` in binary starts a new character). The tests even cover a text that ends in the middle of a character, and in CI they run with AddressSanitizer to make sure nothing is read outside the memory.
+This table gave me some work. `printf("%-35.35s")` aligns by counting bytes, but in UTF-8 letters like "á" and "ê" take 2 bytes. Because of that, every row with an accented title (like "Memórias Póstumas de Brás Cubas") came out shorter than the others, and when the title went over the limit it could get cut in the middle of a letter, showing a broken character. Now text that doesn't fit ends in `...`. I wrote `format_column`, which counts characters instead of bytes (every byte that doesn't start with `10` in binary starts a new character). The tests even cover a text that ends in the middle of a character, and in CI they run with AddressSanitizer to make sure nothing is read outside the memory.
 
 ## Files
 
