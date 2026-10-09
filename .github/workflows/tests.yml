@@ -11,7 +11,7 @@ jobs:
       matrix:
         compiler: [gcc, clang]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Build the program (warnings become errors)
         run: make CC=${{ matrix.compiler }} CFLAGS="-Wall -Wextra -Wpedantic -std=c17 -g -Werror"
